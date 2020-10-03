@@ -1,0 +1,154 @@
+# Implementing Bag of Words
+
+<font face='georgia'>
+    <h3><strong>Fit method:</strong></h3>
+
+<ol>
+    <li> With this function, we will find all unique words in the data and we will assign a dimension-number to each unique word. </li>
+    <br>
+    <li> We  will create a python dictionary to save all the unique words, such that the key of dictionary represents a unique word and the corresponding value represent it's dimension-number. </li><br>
+    <li> For example, if you have a review, <strong>__'very bad pizza'__</strong> then you can represent each unique word with a dimension_number as, <br>
+        <strong>dict</strong> = { 'very' : 1, 'bad' : 2, 'pizza' : 3}     </li>
+    </ol>
+        
+
+import warnings
+warnings.filterwarnings("ignore")
+import pandas as pd
+from tqdm import tqdm
+import os
+
+from tqdm import tqdm # tqdm is a library that helps us to visualize the runtime of for loop. refer this to know more about tqdm
+#https://tqdm.github.io/
+
+# it accepts only list of sentances
+def fit(dataset):    
+    unique_words = set() # at first we will initialize an empty set
+    # check if its list type or not
+    if isinstance(dataset, (list,)):
+        for row in dataset: # for each review in the dataset
+            for word in row.split(" "): # for each word in the review. #split method converts a string into list of words
+                if len(word) < 2:
+                    continue
+                unique_words.add(word)
+        unique_words = sorted(list(unique_words))
+        vocab = {j:i for i,j in enumerate(unique_words)}
+        
+        return vocab
+    else:
+        print("you need to pass list of sentance")
+
+vocab = fit(["abc def aaa prq", "lmn pqr aaaaaaa aaa abbb baaa"])
+print(vocab)
+
+<font face='georgia'>
+    <h4><strong>What is a Sparse Matrix?</strong></h4>
+
+<ol>
+    <li>Before going further into details about Transform method, we will understand what sparse matrix is.</li>
+    <br>
+    <li> Sparse matrix stores only non-zero elements and they occupy less amount of RAM comapre to a dense matrix. You can refer to this <a href="http://btechsmartclass.com/data_structures/sparse-matrix.html"><u>link</u>.</a> </li><br>
+    <li> For example, assume you have a matrix,
+        <pre>
+[[1, 0, 0, 0, 0], 
+[0, 0, 0, 1, 0], 
+[0, 0, 4, 0, 0]] 
+</pre>   </li>
+    </ol>
+        
+
+from sys import getsizeof
+import numpy as np
+# we store every element here
+a = np.array([[1, 0, 0, 0, 0], [0, 0, 0, 1, 0], [0, 0, 4, 0, 0]])
+print(getsizeof(a))
+
+# here we are storing only non zero elements here (row, col, value)
+a = [ (0, 0, 1), (1, 3, 1), (2,2,4)]
+# with this way of storing we are saving alomost 50% memory for this example
+print(getsizeof(a))
+
+<font face='georgia'>
+    <h4><strong>How to write a Sparse Matrix?:</strong></h4>
+
+<ol>
+    <li> You can use csr_matrix() method of scipy.sparse to write a sparse matrix.</li>
+    <li> You need to pass indices of non-zero elements into csr_matrix() for creating a sparse matrix. </li>
+    <li> You also need to pass element value of each pair of indices. </li>
+    <li> You can use lists to save the indices of non-zero elements and their corresponding element values. </li>
+    <li> For example, 
+        <ul>
+            <li>Assume you have a matrix,
+        <pre>
+    [[1, 0, 0], 
+    [0, 0, 1], 
+    [4, 0, 6]] 
+    </pre></li>
+        <li> Then you can save the indices using a list as,<br><strong>list_of_indices</strong> =  [(0,0), (1,2), (2,0), (2,2)]</li>
+            <li> And you can save the corresponding element values as, <br><strong>element_values</strong> = [1, 1, 4, 6]  </li>
+        </ul></li>
+    <li> Further you can refer to the documentation  <a href="https://docs.scipy.org/doc/scipy-0.19.0/reference/generated/scipy.sparse.csr_matrix.html"><u>here</u>.</a> </li>
+    </ol>
+
+<font face='georgia'>
+    <h3><strong>Transform method:</strong></h3>
+
+<ol>
+    <li>With this function, we will write a feature matrix using sprase matrix.</li>
+    </ol>
+        
+
+from collections import Counter
+from scipy.sparse import csr_matrix
+test = 'abc def abc def zzz zzz pqr'
+a = dict(Counter(test.split()))
+for i,j in a.items():
+    print(i, j)
+
+# https://stackoverflow.com/questions/9919604/efficiently-calculate-word-frequency-in-a-string
+# https://docs.scipy.org/doc/scipy-0.19.0/reference/generated/scipy.sparse.csr_matrix.html
+# note that we are we need to send the preprocessing text here, we have not inlcuded the processing
+
+def transform(dataset,vocab):
+    rows = []
+    columns = []
+    values = []
+    if isinstance(dataset, (list,)):
+        for idx, row in enumerate(tqdm(dataset)): # for each document in the dataset
+            # it will return a dict type object where key is the word and values is its frequency, {word:frequency}
+            word_freq = dict(Counter(row.split()))
+            # for every unique word in the document
+            for word, freq in word_freq.items():  # for each unique word in the review.                
+                if len(word) < 2:
+                    continue
+                # we will check if its there in the vocabulary that we build in fit() function
+                # dict.get() function will return the values, if the key doesn't exits it will return -1
+                col_index = vocab.get(word, -1) # retreving the dimension number of a word
+                # if the word exists
+                if col_index !=-1:
+                    # we are storing the index of the document
+                    rows.append(idx)
+                    # we are storing the dimensions of the word
+                    columns.append(col_index)
+                    # we are storing the frequency of the word
+                    values.append(freq)
+        return csr_matrix((values, (rows,columns)), shape=(len(dataset),len(vocab)))
+    else:
+        print("you need to pass list of strings")
+
+strings = ["the method of lagrange multipliers is the economists workhorse for solving optimization problems",
+           "the technique is a centerpiece of economic theory but unfortunately its usually taught poorly"]
+vocab = fit(strings)
+print(list(vocab.keys()))
+print(transform(strings, vocab).toarray())
+
+## Comparing results with countvectorizer
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+vec = CountVectorizer(analyzer='word')
+
+vec.fit(strings)
+feature_matrix_2 = vec.transform(strings)
+print(feature_matrix_2.toarray())
+
